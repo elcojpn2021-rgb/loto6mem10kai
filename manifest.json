@@ -1,0 +1,30 @@
+{
+  "name": "ロト6 AI予測アドバイザー",
+  "short_name": "ロト6AI",
+  "description": "AIがロト6の予測数字をアドバイス",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a0a5e",
+  "theme_color": "#1a0a5e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
