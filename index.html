@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ロト6 AI予測アドバイザー</title>
+
+<!-- PWA設定 -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a0a5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ロト6AI">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+<style>
+  /* ===== TOKENS ===== */
+  :root {
+    --bg:       #0D1B2A;
+    --surface:  #112236;
+    --border:   #1E3A5F;
+    --gold:     #D4AF37;
+    --gold-dim: #8B6914;
+    --text:     #E8E8E8;
+    --muted:    #7A9CC0;
+    --green:    #2ECC71;
+    --red:      #E74C3C;
+    --blue:     #3498DB;
+    --purple:   #9B59B6;
+    --orange:   #E67E22;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    text-align: center;
+    padding: 48px 24px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 60% at 50% 0%, rgba(212,175,55,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px, 6vw, 52px);
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    text-shadow: 0 0 24px rgba(212,175,55,0.5);
+    margin-bottom: 8px;
+  }
+  .tagline {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  /* ===== LAYOUT ===== */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+  }
+
+  /* ===== UPLOAD SECTION ===== */
+  .upload-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 32px;
+  }
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 36px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--gold);
+    background: rgba(212,175,55,0.04);
+  }
+  .upload-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+  .upload-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  .upload-text { color: var(--muted); font-size: 14px; }
+  .upload-text strong { color: var(--text); }
+
+  .format-hint {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    background: rgba(30,58,95,0.4);
+    border-radius: 6px;
+    padding: 12px 16px;
+    line-height: 1.8;
+  }
+  .format-hint code {
+    background: rgba(212,175,55,0.15);
+    color: var(--gold);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  .file-info {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: rgba(46,204,113,0.08);
+    border: 1px solid rgba(46,204,113,0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--green);
+  }
+
+  /* ===== TARGET MONTH ===== */
+  .controls-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--muted); letter-spacing: 0.1em; }
+  .field input, .field select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--gold); }
+
+  .btn-run {
+    background: var(--gold);
+    color: #0D1B2A;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 32px;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    flex-shrink: 0;
+    margin-top: auto;
+  }
+  .btn-run:hover { opacity: 0.88; }
+  .btn-run:active { transform: scale(0.97); }
+  .btn-run:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ===== STATUS ===== */
+  .status-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== RESULTS ===== */
+  #results { display: none; }
+
+  .results-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .results-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 15px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+  }
+  .results-meta { font-size: 12px; color: var(--muted); }
+
+  /* patterns */
+  .patterns-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .pattern-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .pattern-chip .p-name {
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .pattern-chip .p-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* prediction sets */
+  .set-group { margin-bottom: 36px; }
+  .set-group-title {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .set-group-title::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 2px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .high-prob .set-group-title { color: var(--green); }
+  .monthly-pick .set-group-title { color: var(--blue); }
+
+  .prediction-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .row-label {
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 36px;
+  }
+  .balls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ball {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    position: relative;
+    transition: transform 0.2s;
+  }
+  .ball:hover { transform: scale(1.12); }
+  .ball::after {
+    content: '';
+    position: absolute;
+    top: 4px; left: 6px;
+    width: 10px; height: 6px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 50%;
+    transform: rotate(-30deg);
+  }
+  /* ball color by number range */
+  .ball-1  { background: radial-gradient(circle at 38% 35%, #e74c3c, #8e2417); color: #fff; }
+  .ball-2  { background: radial-gradient(circle at 38% 35%, #e67e22, #8e4d10); color: #fff; }
+  .ball-3  { background: radial-gradient(circle at 38% 35%, #f1c40f, #9a7d0a); color: #0D1B2A; }
+  .ball-4  { background: radial-gradient(circle at 38% 35%, #2ecc71, #1a7a44); color: #fff; }
+  .ball-5  { background: radial-gradient(circle at 38% 35%, #3498db, #1a5c8a); color: #fff; }
+  .ball-6  { background: radial-gradient(circle at 38% 35%, #9b59b6, #5e2d82); color: #fff; }
+
+  .row-reason {
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+    min-width: 200px;
+    line-height: 1.6;
+  }
+
+  /* analysis summary */
+  .analysis-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 8px;
+    padding: 20px 22px;
+    margin-bottom: 32px;
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--muted);
+    white-space: pre-wrap;
+  }
+
+  /* error */
+  .error-box {
+    background: rgba(231,76,60,0.08);
+    border: 1px solid rgba(231,76,60,0.4);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--red);
+    display: none;
+    margin-bottom: 16px;
+  }
+
+  /* ===== STAT BADGES ===== */
+  .row-left {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 56px;
+  }
+  .row-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .stat-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+  }
+  .role-badge {
+    font-weight: 700;
+    font-size: 10px;
+  }
+
+  /* ===== BONUS BALL ===== */
+  .ball-bonus       { background: radial-gradient(circle at 38% 35%, #e91e8c, #8b0f55); color: #fff; }
+  .ball-bonus-hidden{ background: radial-gradient(circle at 38% 35%, #b39ddb, #512da8); color: #fff; }
+  .ball-bonus-month { background: radial-gradient(circle at 38% 35%, #f06292, #ad1457); color: #fff; }
+  .ball-bonus-pick  { background: radial-gradient(circle at 38% 35%, #e91e8c, #8b0f55); color: #fff; box-shadow: 0 0 10px rgba(233,30,140,0.5); }
+
+  .bonus-separator {
+    display: flex;
+    align-items: center;
+    color: var(--muted);
+    font-size: 18px;
+    padding: 0 2px;
+  }
+
+  .bonus-analysis-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid #e91e8c;
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+
+  .bonus-stat-grid {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .bonus-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bs-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .bonus-comment {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  /* ===== FOOTER NOTE ===== */
+  .disclaimer {
+    margin-top: 48px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  /* ===== AUTO FETCH BUTTON ===== */
+  .btn-auto-fetch {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: auto;
+  }
+  .btn-auto-fetch:hover { background: rgba(212,175,55,0.1); }
+  .btn-auto-fetch:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ===== PDF BUTTON ===== */
+  .btn-pdf {
+    display: none;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin: 24px auto 0;
+  }
+  .btn-pdf:hover { opacity: 0.85; }
+  .pdf-row { text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LOTO 6</div>
+  <div class="tagline">AI Statistical Prediction Engine</div>
+</header>
+
+<main>
+
+  <!-- ACCESS KEY CARD -->
+  <div class="upload-card" id="keyCard">
+
+    <!-- 無料お試し -->
+    <div id="trialSection" style="margin-bottom:20px;">
+      <div class="section-label">まずは無料でお試し</div>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 12px;">
+        アクセスキーをお持ちでない方も、まずは1回だけ無料で全機能をお試しいただけます。
+      </p>
+      <button id="btnTrial"
+        style="width:100%; padding:12px; background:var(--green); color:#0D1B2A; border:none;
+               border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;">
+        🎁 無料で1回お試しする
+      </button>
+      <div id="trialStatus" style="font-size:13px; min-height:20px; margin-top:10px;"></div>
+      <hr style="border:none; border-top:1px solid var(--border); margin:20px 0 0;">
+    </div>
+
+    <div class="section-label" style="margin-top:20px;">アクセスキー認証</div>
+
+    <!-- ステップ1: クーポンでキー発行 -->
+    <div id="step1">
+      <p style="font-size:13px; color:var(--muted); margin:0 0 12px;">
+        初めてご利用の方はクーポンコードを入力してアクセスキーを発行してください。
+      </p>
+      <input type="text" id="couponInput" placeholder="クーポンコードを入力"
+        style="width:100%; box-sizing:border-box; padding:12px 14px; background:#1a2a3a;
+               border:1px solid var(--border); border-radius:8px; color:#fff;
+               font-family:'Orbitron',monospace; font-size:13px; letter-spacing:0.1em; outline:none; margin-bottom:10px;">
+      <button id="btnRedeem"
+        style="width:100%; padding:12px; background:var(--gold); color:#000; border:none;
+               border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px; margin-bottom:16px;">
+        クーポンでキーを発行する
+      </button>
+      <div id="redeemResult" style="font-size:13px; min-height:20px; margin-bottom:16px;"></div>
+      <hr style="border:none; border-top:1px solid var(--border); margin-bottom:16px;">
+    </div>
+
+    <!-- ステップ2: 既存キーで認証 -->
+    <p style="font-size:13px; color:var(--muted); margin:0 0 10px;">
+      すでにアクセスキーをお持ちの方はこちら
+    </p>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+      <input type="text" id="accessKeyInput" placeholder="LOTO6-XXXX-XXXX"
+        style="flex:1; padding:12px 14px; background:#1a2a3a; border:1px solid var(--border);
+               border-radius:8px; color:#fff; font-family:'Orbitron',monospace; font-size:13px;
+               letter-spacing:0.1em; outline:none;">
+      <button id="btnVerifyKey"
+        style="padding:12px 20px; background:#3498db; color:#fff; border:none;
+               border-radius:8px; font-weight:bold; cursor:pointer; white-space:nowrap;">
+        認証する
+      </button>
+    </div>
+    <div id="keyStatus" style="font-size:13px; color:var(--muted); min-height:20px;"></div>
+  </div>
+
+  <!-- UPLOAD CARD -->
+  <div class="upload-card" id="mainCard" style="display:none;">
+    <div class="section-label">データ入力</div>
+
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="csvInput" accept=".csv,.txt">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text"><strong>CSVファイルをドロップ</strong>またはクリックして選択</div>
+    </div>
+
+    <div class="format-hint">
+      <strong>CSVフォーマット例（1行目はヘッダー可）:</strong><br>
+      <code>第1234回,2024/06/03,3,11,22,31,38,43,7</code><br>
+      列順: 回号, 抽選日, 本数字①〜⑥, ボーナス数字<br>
+      ※ 回号・抽選日列はなくても可（数字6列のみでもOK）
+    </div>
+
+    <div class="file-info" id="fileInfo">
+      <span>✅</span>
+      <span id="fileInfoText"></span>
+    </div>
+
+    <div class="controls-row">
+      <div class="field">
+        <label>予測対象の月（当月頻出分析用）</label>
+        <input type="month" id="targetMonth" value="">
+      </div>
+      <button class="btn-auto-fetch" id="btnAutoFetch">🌐 Webから自動取得（過去2年）</button>
+      <button class="btn-run" id="btnRun" disabled>予測を実行</button>
+    </div>
+    <div id="remainingBox" style="display:none; margin-top:12px; text-align:center;
+         font-size:13px; color:var(--gold);">残り利用回数: <strong id="remainingCount">-</strong> 回</div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-bar" id="statusBar">
+    <div class="spinner"></div>
+    <span id="statusText">Claude AI が分析中...</span>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="results-header">
+      <div class="results-title">PREDICTION RESULTS</div>
+      <div class="results-meta" id="resultsMeta"></div>
+    </div>
+
+    <!-- 分析サマリー -->
+    <div class="section-label">統計パターン分析</div>
+    <div class="analysis-box" id="analysisBox"></div>
+
+    <!-- パターンチップ -->
+    <div class="patterns-grid" id="patternsGrid"></div>
+
+    <!-- ボーナス数字分析 -->
+    <div id="bonusSection" style="display:none; margin-bottom:32px;">
+      <div class="section-label">ボーナス数字分析</div>
+      <div id="bonusAnalysisBox" class="bonus-analysis-box"></div>
+    </div>
+
+    <!-- 高確率予測 -->
+    <div class="set-group high-prob">
+      <div class="set-group-title">高確率予測 — 統計的に出現しやすい組合せ</div>
+      <div id="highProbSets"></div>
+    </div>
+
+    <!-- 当月頻出予測 -->
+    <div class="set-group monthly-pick">
+      <div class="set-group-title">当月頻出予測 — この月に多く出る数字の組合せ</div>
+      <div id="monthlyPickSets"></div>
+    </div>
+
+    <!-- PDFボタン -->
+    <div class="pdf-row">
+      <button class="btn-pdf" id="btnPdf" onclick="downloadPDF()">📄 PDFでダウンロード</button>
+    </div>
+
+  </div>
+
+  <div class="disclaimer">
+    ※ このアプリは統計的傾向の分析に基づく参考情報です。宝くじの当選を保証するものではありません。
+  </div>
+</main>
+
+<script>
+const WORKER_URL = 'https://loto6mem10kai.elcojpn2021.workers.dev/';
+
+let parsedDraws = [];
+let accessKey = '';
+
+// ========================================
+// 無料お試し（1回のみ）
+// ========================================
+const TRIAL_FLAG = 'loto6_trial_used';
+
+function isTrialUsed() {
+  return localStorage.getItem(TRIAL_FLAG) === 'true'
+      || document.cookie.includes(`${TRIAL_FLAG}=true`);
+}
+
+function markTrialUsed() {
+  localStorage.setItem(TRIAL_FLAG, 'true');
+  document.cookie = `${TRIAL_FLAG}=true; max-age=31536000; path=/`;
+}
+
+function renderTrialSection() {
+  const trialSection = document.getElementById('trialSection');
+  const trialStatus = document.getElementById('trialStatus');
+  const btnTrial = document.getElementById('btnTrial');
+  if (isTrialUsed()) {
+    btnTrial.disabled = true;
+    btnTrial.style.opacity = '0.4';
+    btnTrial.style.cursor = 'not-allowed';
+    trialStatus.style.color = 'var(--muted)';
+    trialStatus.textContent = '無料お試しはご利用済みです。継続利用にはアクセスキーが必要です。';
+  }
+}
+renderTrialSection();
+
+document.getElementById('btnTrial').addEventListener('click', async () => {
+  const trialStatus = document.getElementById('trialStatus');
+  if (isTrialUsed()) return;
+
+  trialStatus.style.color = 'var(--muted)';
+  trialStatus.textContent = '準備中...';
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'trial_key' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      accessKey = data.access_key;
+      markTrialUsed();
+      renderTrialSection();
+      trialStatus.style.color = '#2ecc71';
+      trialStatus.textContent = '✅ お試し準備ができました！下でCSVを読み込んで予測を実行できます。';
+
+      document.getElementById('mainCard').style.display = 'block';
+      document.getElementById('remainingBox').style.display = 'block';
+      document.getElementById('remainingBox').innerHTML =
+        `お試し残り利用回数: <strong id="remainingCount">1</strong> 回`;
+    } else {
+      trialStatus.style.color = '#e74c3c';
+      trialStatus.textContent = '❌ ' + (data.error || 'エラーが発生しました。');
+    }
+  } catch (e) {
+    trialStatus.style.color = '#e74c3c';
+    trialStatus.textContent = '通信エラー: ' + e.message;
+  }
+});
+
+// ========================================
+// クーポンでアクセスキー発行
+// ========================================
+document.getElementById('btnRedeem').addEventListener('click', async () => {
+  const coupon = document.getElementById('couponInput').value.trim().toUpperCase();
+  const resultBox = document.getElementById('redeemResult');
+  if (!coupon) { resultBox.style.color = '#e74c3c'; resultBox.textContent = 'クーポンコードを入力してください。'; return; }
+
+  resultBox.style.color = 'var(--muted)';
+  resultBox.textContent = '確認中...';
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'redeem_coupon', coupon })
+    });
+    const data = await res.json();
+    if (data.success) {
+      resultBox.style.color = '#2ecc71';
+      resultBox.innerHTML = `✅ アクセスキーが発行されました！<br>
+        <strong style="font-family:monospace; font-size:16px; letter-spacing:2px;">${data.access_key}</strong><br>
+        <span style="font-size:11px;">⬆️ このキーを保存してください。下の欄に入力して認証してください。</span>`;
+      // 自動でキー入力欄にセット
+      document.getElementById('accessKeyInput').value = data.access_key;
+    } else {
+      resultBox.style.color = '#e74c3c';
+      resultBox.textContent = '❌ ' + (data.error || 'エラーが発生しました。');
+    }
+  } catch (e) {
+    resultBox.style.color = '#e74c3c';
+    resultBox.textContent = '通信エラー: ' + e.message;
+  }
+});
+document.getElementById('btnVerifyKey').addEventListener('click', async () => {
+  const input = document.getElementById('accessKeyInput').value.trim().toUpperCase();
+  const keyStatus = document.getElementById('keyStatus');
+  if (!input) { keyStatus.textContent = 'キーを入力してください。'; keyStatus.style.color = '#e74c3c'; return; }
+
+  keyStatus.textContent = '確認中...';
+  keyStatus.style.color = 'var(--muted)';
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'check_key', access_key: input })
+    });
+    const data = await res.json();
+    if (data.valid) {
+      accessKey = input;
+      keyStatus.textContent = `✅ 認証成功！残り利用回数: ${data.remaining} 回`;
+      keyStatus.style.color = '#2ecc71';
+      document.getElementById('mainCard').style.display = 'block';
+      document.getElementById('remainingBox').style.display = 'block';
+      document.getElementById('remainingBox').innerHTML =
+        `残り利用回数: <strong id="remainingCount">${data.remaining}</strong> 回`;
+    } else {
+      keyStatus.textContent = '❌ ' + (data.error || 'キーが無効です。');
+      keyStatus.style.color = '#e74c3c';
+    }
+  } catch (e) {
+    keyStatus.textContent = '通信エラー: ' + e.message;
+    keyStatus.style.color = '#e74c3c';
+  }
+});
+
+// --- ファイル読み込み ---
+const csvInput = document.getElementById('csvInput');
+const uploadZone = document.getElementById('uploadZone');
+const fileInfo = document.getElementById('fileInfo');
+const fileInfoText = document.getElementById('fileInfoText');
+const btnRun = document.getElementById('btnRun');
+const btnAutoFetch = document.getElementById('btnAutoFetch');
+
+// 当月をデフォルト設定
+const now = new Date();
+document.getElementById('targetMonth').value =
+  `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+csvInput.addEventListener('change', () => {
+  if (csvInput.files[0]) handleFile(csvInput.files[0]);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    parsedDraws = parseCSV(e.target.result);
+    if (parsedDraws.length < 10) {
+      showError('データが少なすぎます（10回分以上必要です）。CSVを確認してください。');
+      return;
+    }
+    fileInfo.style.display = 'flex';
+    fileInfoText.textContent = `${file.name}  ／  ${parsedDraws.length}回分読み込み完了`;
+    btnRun.disabled = false;
+    hideError();
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// --- 🌐 Webから自動取得（過去2年間） ---
+btnAutoFetch.addEventListener('click', async () => {
+  btnAutoFetch.disabled = true;
+  showStatus('LATサイトからデータを自動取得中...');
+
+  // Worker経由でCSVを取得（CORS回避）
+  let rawText = null;
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'fetch_csv', access_key: accessKey })
+    });
+    if (res.ok) {
+      const d = await res.json();
+      rawText = d.csv || null;
+    } else {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Worker エラー: ${res.status}`);
+    }
+  } catch (e) {
+    hideStatus();
+    btnAutoFetch.disabled = false;
+    showError('CSV取得エラー: ' + e.message);
+    return;
+  }
+
+  hideStatus();
+  btnAutoFetch.disabled = false;
+
+  if (!rawText) {
+    showError('Webからのデータ取得に失敗しました。CSVファイルを手動でアップロードしてください。');
+    return;
+  }
+
+  // 過去2年分だけに絞る
+  const twoYearsAgo = new Date();
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
+  const lines = rawText.replace(/\r/g, '').split('\n').filter(l => l.trim());
+  const filtered = lines.filter(line => {
+    const cols = line.split(',');
+    // 日付列（yyyy-mm-dd または yyyy/mm/dd）を探す
+    for (const col of cols) {
+      const m = col.trim().match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+      if (m) {
+        const d = new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+        return d >= twoYearsAgo;
+      }
+    }
+    return true; // 日付不明は含める
+  });
+
+  parsedDraws = parseCSVLines(filtered);
+
+  if (parsedDraws.length < 10) {
+    showError('取得データが少なすぎます。手動アップロードをお試しください。');
+    return;
+  }
+
+  fileInfo.style.display = 'flex';
+  fileInfoText.textContent = `🌐 Web自動取得完了  ／  ${parsedDraws.length}回分（過去2年間）`;
+  btnRun.disabled = false;
+  hideError();
+});
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  return parseCSVLines(lines);
+}
+
+function parseCSVLines(lines) {
+  const draws = [];
+  for (const line of lines) {
+    const cols = line.split(',').map(c => c.trim().replace(/"/g,''));
+    // 日付を抽出
+    let date = null;
+    for (const col of cols) {
+      const m = col.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+      if (m) {
+        date = `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+        break;
+      }
+    }
+    const nums = cols.map(c => parseInt(c, 10)).filter(n => n >= 1 && n <= 43);
+    if (nums.length >= 6) {
+      // ★ dateプロパティを付与した配列として保存
+      const arr = nums.slice(0, 6).sort((a,b)=>a-b);
+      arr.date = date;
+      // ★ ボーナス数字（7列目、本数字と重複しないもの）
+      arr.bonus = nums.length >= 7 ? nums[6] : null;
+      draws.push(arr);
+    }
+  }
+  return draws;
+}
+
+// --- 実行 ---
+btnRun.addEventListener('click', runPrediction);
+
+async function runPrediction() {
+  const targetMonth = document.getElementById('targetMonth').value;
+  if (!targetMonth) { showError('予測対象の月を選択してください。'); return; }
+
+  const draws = parsedDraws.slice(-100); // 最新100回
+  const [year, month] = targetMonth.split('-').map(Number);
+
+  showStatus('Claude AI が統計データを解析中...');
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('btnPdf').style.display = 'none';
+  btnRun.disabled = true;
+
+  // 統計計算（フロントで前処理）
+  const stats = computeStats(draws, month);
+
+  const prompt = buildPrompt(draws, stats, year, month);
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, access_key: accessKey })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Worker エラー: ${response.status} ${errText}`);
+    }
+
+    const data = await response.json();
+    hideStatus();
+
+    // 残回数を更新
+    if (data._remaining !== undefined) {
+      document.getElementById('remainingCount').textContent = data._remaining;
+    }
+
+    renderResults(data, draws.length, year, month);
+  } catch (err) {
+    hideStatus();
+    showError('通信エラーが発生しました: ' + err.message);
+  } finally {
+    btnRun.disabled = false;
+  }
+}
+
+// --- 統計計算 ---
+function computeStats(draws, targetMonth) {
+  const freq = new Array(44).fill(0);
+
+  draws.forEach(draw => draw.forEach(n => freq[n]++));
+
+  // ★ 月別出現頻度（対象月のみ）
+  const monthlyFreq = new Array(44).fill(0);
+  draws.forEach(draw => {
+    if (draw.date) {
+      const m = new Date(draw.date).getMonth() + 1;
+      if (m === targetMonth) {
+        draw.forEach(n => monthlyFreq[n]++);
+      }
+    }
+  });
+
+  // ★ 対象月の出現頻度上位数字（4回以上）
+  const monthlyTopNums = monthlyFreq
+    .map((c, i) => ({ n: i, c }))
+    .slice(1)
+    .filter(x => x.c >= 4)
+    .sort((a, b) => b.c - a.c);
+
+  // ★ 過去2年全体で出現回数が少ない数字（平均の60%未満）を除外リストに
+  const totalDraws = draws.length;
+  const avgFreq = (totalDraws * 6) / 43;
+  const threshold = Math.floor(avgFreq * 0.6); // 平均の60%未満を除外候補
+  const lowFreqNums = freq
+    .map((c, i) => ({ n: i, c }))
+    .slice(1)
+    .filter(x => x.c <= threshold)
+    .map(x => x.n);
+
+  // ★ ボーナス数字の統計
+  const bonusFreq = new Array(44).fill(0);
+  const bonusMonthlyFreq = new Array(44).fill(0);
+  let bonusCount = 0;
+
+  draws.forEach(draw => {
+    if (draw.bonus && draw.bonus >= 1 && draw.bonus <= 43) {
+      bonusFreq[draw.bonus]++;
+      bonusCount++;
+      if (draw.date) {
+        const m = new Date(draw.date).getMonth() + 1;
+        if (m === targetMonth) bonusMonthlyFreq[draw.bonus]++;
+      }
+    }
+  });
+
+  // ボーナス頻出TOP8
+  const bonusTopFreq = bonusFreq
+    .map((c,i) => ({n:i, c})).slice(1)
+    .sort((a,b) => b.c - a.c).slice(0, 8);
+
+  // ボーナス穴場（出現少ないが0ではない）
+  const bonusHidden = bonusFreq
+    .map((c,i) => ({n:i, c})).slice(1)
+    .filter(x => x.c > 0)
+    .sort((a,b) => a.c - b.c).slice(0, 8);
+
+  // 当月ボーナス頻出
+  const bonusMonthlyTop = bonusMonthlyFreq
+    .map((c,i) => ({n:i, c})).slice(1)
+    .filter(x => x.c > 0)
+    .sort((a,b) => b.c - a.c).slice(0, 6);
+
+  // =========================================
+  // ★ 移り変わり分析①：差分（入れ替わり数）
+  // =========================================
+  // 連続する2回の間で「前回と異なる数字の個数」を計算
+  const diffCounts = [];
+  for (let i = 1; i < draws.length; i++) {
+    const prev = new Set(draws[i-1]);
+    const curr = draws[i];
+    const diff = curr.filter(n => !prev.has(n)).length;
+    diffCounts.push(diff);
+  }
+  const avgDiff = diffCounts.length
+    ? Math.round(diffCounts.reduce((a,b)=>a+b,0) / diffCounts.length * 10) / 10
+    : 3;
+  // 直近10回の平均差分
+  const recentDiff = diffCounts.slice(-10).length
+    ? Math.round(diffCounts.slice(-10).reduce((a,b)=>a+b,0) / diffCounts.slice(-10).length * 10) / 10
+    : avgDiff;
+  // 差分パターン分布（何個入れ替わる回が多いか）
+  const diffDist = {};
+  diffCounts.forEach(d => { diffDist[d] = (diffDist[d]||0)+1; });
+  const mostCommonDiff = Object.entries(diffDist).sort((a,b)=>b[1]-a[1])[0]?.[0] || '3';
+
+  // =========================================
+  // ★ 移り変わり分析②：各数字の出現間隔（周期）
+  // =========================================
+  // 各数字について「出現した回のインデックス」を記録し、間隔の平均を計算
+  const appearAt = Array.from({length:44}, ()=>[]);
+  draws.forEach((draw, i) => draw.forEach(n => appearAt[n].push(i)));
+
+  const intervalStats = appearAt.map((idxs, n) => {
+    if (idxs.length < 2) return { n, avgInterval: 999, lastSeen: idxs[0]??-1, waitingFor: 999, onTime: false };
+    const intervals = [];
+    for (let i = 1; i < idxs.length; i++) intervals.push(idxs[i] - idxs[i-1]);
+    const avg = intervals.reduce((a,b)=>a+b,0) / intervals.length;
+    const lastSeen = idxs[idxs.length-1];
+    const waitingFor = draws.length - 1 - lastSeen; // 最後に出てから何回経過したか
+    const onTime = waitingFor >= avg * 0.85; // 平均間隔の85%以上待っていれば「出頃」
+    return { n, avgInterval: Math.round(avg*10)/10, lastSeen, waitingFor, onTime };
+  }).slice(1); // index 0除去
+
+  // 「出頃」数字（平均間隔に近づいている）
+  const duaNums = intervalStats
+    .filter(x => x.onTime && x.avgInterval < 30)
+    .sort((a,b) => (b.waitingFor/b.avgInterval) - (a.waitingFor/a.avgInterval))
+    .slice(0, 15);
+
+  // =========================================
+  // ★ 移り変わり分析③：枯れ数字（直近N回未出現）
+  // =========================================
+  const last20 = new Set(draws.slice(-20).flat().filter(n=>typeof n==='number'));
+  const last30 = new Set(draws.slice(-30).flat().filter(n=>typeof n==='number'));
+  const last50 = new Set(draws.slice(-50).flat().filter(n=>typeof n==='number'));
+
+  const droughtNums = intervalStats
+    .filter(x => x.n >= 1 && !last20.has(x.n) && x.avgInterval < 25)
+    .sort((a,b) => b.waitingFor - a.waitingFor)
+    .slice(0, 10);
+
+  // 直近10回に出た数字（熱い数字）
+  const hotNums = new Set(draws.slice(-10).flat().filter(n=>typeof n==='number'));
+  const hotList = [...hotNums].sort((a,b)=>a-b);
+
+  // =========================================
+  // ★ 最高頻出数字1つ（全体TOP1のみ）
+  // =========================================
+  const allFreqSorted = freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
+  const top1Num = allFreqSorted[0]?.n; // 各組に1つだけ入れる
+
+  // =========================================
+  // 連続数字ペア
+  // =========================================
+  const pairs = {};
+  draws.forEach(draw => {
+    for (let i = 0; i < draw.length - 1; i++) {
+      for (let j = i+1; j < draw.length; j++) {
+        const key = `${draw[i]}-${draw[j]}`;
+        pairs[key] = (pairs[key]||0) + 1;
+      }
+    }
+  });
+  const topPairs = Object.entries(pairs).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  // 奇偶バランス（詳細）
+  let oddEven = {};
+  draws.forEach(draw => {
+    const odd = draw.filter(n=>n%2===1).length;
+    const key = `${odd}奇${6-odd}偶`;
+    oddEven[key] = (oddEven[key]||0)+1;
+  });
+  // 最頻出の奇偶パターンTOP3
+  const oddEvenTop3 = Object.entries(oddEven)
+    .sort((a,b)=>b[1]-a[1]).slice(0,3)
+    .map(([k,v])=>({ pattern: k, count: v, pct: Math.round(v/draws.length*100) }));
+
+  // 桁数ゾーン分布（1-10, 11-20, 21-30, 31-43）
+  const zoneNames = ['1-10','11-20','21-30','31-43'];
+  const getZone = n => n<=10?0:n<=20?1:n<=30?2:3;
+  let zoneDist = {};
+  let zoneFreq = [0,0,0,0];
+  draws.forEach(draw => {
+    const zc = [0,0,0,0];
+    draw.forEach(n => { zc[getZone(n)]++; zoneFreq[getZone(n)]++; });
+    const key = zc.join('-');
+    zoneDist[key] = (zoneDist[key]||0)+1;
+  });
+
+  // ゾーン分布TOP5
+  const zoneDistTop5 = Object.entries(zoneDist)
+    .sort((a,b)=>b[1]-a[1]).slice(0,5)
+    .map(([k,v])=>({
+      pattern: k,
+      label: k.split('-').map((c,i)=>`${zoneNames[i]}:${c}個`).join(' '),
+      count: v,
+      pct: Math.round(v/draws.length*100)
+    }));
+
+  // ゾーン別頻出TOP3数字
+  const zoneTopNums = [0,1,2,3].map(z => {
+    const lo = z===0?1:z===1?11:z===2?21:31;
+    const hi = z===0?10:z===1?20:z===2?30:43;
+    return {
+      zone: zoneNames[z],
+      top: freq.slice(lo, hi+1)
+        .map((c,i)=>({n:lo+i,c}))
+        .sort((a,b)=>b.c-a.c).slice(0,3)
+    };
+  });
+
+  return {
+    freq: freq.slice(1),
+    topPairs,
+    oddEven,
+    mostFreq: allFreqSorted.slice(0,12),
+    leastFreq: [...freq.slice(1).map((c,i)=>({n:i+1,c}))].sort((a,b)=>a.c-b.c).slice(0,12),
+    totalDraws: draws.length,
+    monthlyTopNums,
+    lowFreqNums,
+    threshold,
+    bonusTopFreq,
+    bonusHidden,
+    bonusMonthlyTop,
+    bonusCount,
+    oddEvenTop3,
+    zoneDistTop5,
+    zoneTopNums,
+    // ★ 移り変わり分析
+    avgDiff,           // 全体平均入れ替わり数
+    recentDiff,        // 直近10回平均入れ替わり数
+    mostCommonDiff,    // 最頻出入れ替わり数
+    duaNums,           // 出頃数字
+    droughtNums,       // 枯れ数字（長期未出現）
+    hotList,           // 直近10回の熱い数字
+    top1Num,           // 最高頻出数字（1つだけ各組に入れる）
+  };
+}
+
+function buildPrompt(draws, stats, year, month) {
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const mName = monthNames[month-1];
+
+  // 除外数字（低頻度 + 高頻出TOP3 ※top1だけ残す）
+  const top3Nums = stats.mostFreq.slice(0,3).map(x=>x.n);
+  const top1Num  = stats.top1Num;
+  const excludeHighFreq = top3Nums.filter(n => n !== top1Num);
+  const excludeAll = [...new Set([...stats.lowFreqNums, ...excludeHighFreq])].sort((a,b)=>a-b);
+  const excludeStr = excludeAll.length > 0 ? excludeAll.join(', ') : 'なし';
+
+  // 月別頻出
+  const monthlyTopStr = stats.monthlyTopNums.length > 0
+    ? stats.monthlyTopNums.map(x=>`${x.n}(${x.c}回)`).join(', ')
+    : '特になし';
+
+  // ボーナス
+  const bonusTopStr    = stats.bonusCount > 0 ? stats.bonusTopFreq.map(x=>`${x.n}(${x.c}回)`).join(', ') : 'データなし';
+  const bonusHiddenStr = stats.bonusCount > 0 ? stats.bonusHidden.map(x=>`${x.n}(${x.c}回)`).join(', ')  : 'データなし';
+  const bonusMonthlyStr= stats.bonusMonthlyTop.length > 0 ? stats.bonusMonthlyTop.map(x=>`${x.n}(${x.c}回)`).join(', ') : '特になし';
+
+  // 奇偶
+  const oddEvenStr   = stats.oddEvenTop3.map(x=>`${x.pattern}(${x.count}回/${x.pct}%)`).join(', ');
+  const topOEPattern = stats.oddEvenTop3[0]?.pattern || '3奇3偶';
+  const topOE2Pattern= stats.oddEvenTop3[1]?.pattern || '4奇2偶';
+
+  // ゾーン
+  const zoneNames  = ['1-10','11-20','21-30','31-43'];
+  const zoneStr    = stats.zoneDistTop5.map(x=>`[${x.label}](${x.count}回/${x.pct}%)`).join('\n  ');
+  const zoneTopStr = stats.zoneTopNums.map(z=>`${z.zone}帯: ${z.top.map(x=>`${x.n}(${x.c}回)`).join(', ')}`).join(' / ');
+  const topZoneArr = stats.zoneDistTop5[0]?.pattern.split('-').map(Number) || [2,2,1,1];
+  const topZone2Arr= stats.zoneDistTop5[1]?.pattern.split('-').map(Number) || [2,1,2,1];
+
+  // ★ 移り変わり分析文字列
+  const duaStr = stats.duaNums.length > 0
+    ? stats.duaNums.map(x=>`${x.n}(平均${x.avgInterval}回間隔/${x.waitingFor}回待ち)`).join(', ')
+    : 'なし';
+  const droughtStr = stats.droughtNums.length > 0
+    ? stats.droughtNums.map(x=>`${x.n}(${x.waitingFor}回未出現/平均${x.avgInterval}回間隔)`).join(', ')
+    : 'なし';
+  const hotStr = stats.hotList.length > 0 ? stats.hotList.join(', ') : 'なし';
+
+  return `あなたはロト6の統計分析の専門家です。以下の統計データに厳密に基づいて予測を行い、JSONのみで回答してください。
+
+## 統計データ（過去${stats.totalDraws}回）
+
+### ★ 移り変わり分析（メイン根拠として使うこと）
+
+【差分パターン】
+- 全体平均入れ替わり数: ${stats.avgDiff}個/回
+- 直近10回の平均: ${stats.recentDiff}個/回
+- 最頻出入れ替わり数: ${stats.mostCommonDiff}個
+→ 直前の当選番号から約${stats.mostCommonDiff}個を入れ替えた組合せを基本に予測すること
+
+【出頃数字】（平均出現間隔に達した、そろそろ出る数字）
+  ${duaStr}
+→ これらを優先して予測に組み込むこと
+
+【枯れ数字】（直近20回以上未出現で、そろそろ出るべき数字）
+  ${droughtStr}
+→ 穴場狙い・2等狙い組に積極的に入れること
+
+【直近10回の熱い数字】（連続出現中の勢いある数字）
+  ${hotStr}
+→ 直近の流れを引き継ぐ組合せに使うこと
+
+### 奇数・偶数バランス（★必ず守ること）
+${oddEvenStr}
+→ 組①②④は「${topOEPattern}」厳守。組③⑤⑥は「${topOE2Pattern}」または「${topOEPattern}」
+
+### 桁数ゾーン分布（★必ず守ること）
+ゾーン定義: 1-10帯/11-20帯/21-30帯/31-43帯
+${zoneStr}
+→ 組①②④は最頻出パターン「${topZoneArr.map((c,i)=>zoneNames[i]+':'+c+'個').join(' ')}」厳守
+→ 組③⑤⑥は2番目パターン「${topZone2Arr.map((c,i)=>zoneNames[i]+':'+c+'個').join(' ')}」を使用
+
+### ゾーン別頻出数字（参考）
+${zoneTopStr}
+
+### 最高頻出数字ルール
+- 全体TOP1の数字「${top1Num}」は全6組それぞれに1個ずつ必ず入れること
+- 全体TOP2・TOP3（${excludeHighFreq.join(',')}）は使用禁止
+
+### 除外数字（低頻度 + 高頻出過多）
+${excludeStr}
+→ 本数字・ボーナスともに絶対使用禁止
+
+### ${mName}の月別頻出数字
+${monthlyTopStr}
+
+### ボーナス数字統計（${stats.bonusCount}件）
+- 全体頻出TOP8: ${bonusTopStr}
+- 穴場TOP8: ${bonusHiddenStr}
+- ${mName}頻出: ${bonusMonthlyStr}
+
+## 6組の役割・制約（厳守）
+
+| 組 | グループ | 役割 | 奇偶 | ゾーン | ボーナス | 主な数字源 |
+|----|---------|------|------|--------|---------|-----------|
+| ① | highProb | 1等本命 | ${topOEPattern} | 最頻出 | null | 出頃数字中心 |
+| ② | highProb | 1等本命 | ${topOEPattern} | 最頻出 | null | 枯れ数字×直近熱い数字 |
+| ③ | highProb | 2等狙い | ${topOE2Pattern} | 2番目 | ボーナス最頻出 | 枯れ数字×出頃数字 |
+| ④ | monthlyPick | 1等本命 | ${topOEPattern} | 最頻出 | null | ${mName}頻出×出頃数字 |
+| ⑤ | monthlyPick | 2等狙い | ${topOEPattern} | 最頻出 | ${mName}ボーナス頻出 | ${mName}頻出×枯れ数字 |
+| ⑥ | monthlyPick | 穴場狙い | ${topOE2Pattern} | 2番目 | 穴場ボーナス | 枯れ数字×穴場 |
+
+## 出力JSON形式（厳守）
+{
+  "summary": "200文字。移り変わり傾向・奇偶・ゾーン・ボーナスに言及",
+  "patterns": [
+    {"name": "パターン名", "desc": "40文字以内"},
+    ... 5つ（移り変わり視点で命名すること）
+  ],
+  "bonusAnalysis": {
+    "topBonus": 整数,
+    "hiddenBonus": 整数,
+    "monthlyBonus": 整数,
+    "comment": "80文字以内"
+  },
+  "highProb": [
+    {"role":"1等本命","numbers":[昇順6個],"bonus":null,"oddCount":奇数個数,"zones":[4値],"reason":"60文字以内"},
+    {"role":"1等本命","numbers":[昇順6個],"bonus":null,"oddCount":奇数個数,"zones":[4値],"reason":"60文字以内"},
+    {"role":"2等狙い","numbers":[昇順6個],"bonus":整数,"oddCount":奇数個数,"zones":[4値],"reason":"60文字以内"}
+  ],
+  "monthlyPick": [
+    {"role":"1等本命","numbers":[昇順6個],"bonus":null,"oddCount":奇数個数,"zones":[4値],"reason":"60文字以内"},
+    {"role":"2等狙い","numbers":[昇順6個],"bonus":整数,"oddCount":奇数個数,"zones":[4値],"reason":"60文字以内"},
+    {"role":"穴場狙い","numbers":[昇順6個],"bonus":整数,"oddCount":奇数個数,"zones":[4値],"reason":"60文字以内"}
+  ]
+}
+
+絶対厳守:
+- 除外数字(${excludeStr})は本数字・bonusいずれにも使用禁止
+- 数字「${top1Num}」を全6組に必ず1個含めること
+- 各組で本数字6個に重複なし・昇順。bonusは本数字と重複なし
+- oddCount・zonesは実際に選んだnumbersから算出した正確な値を入れること
+- JSONのみ出力。コードブロック不要`;
+}
+
+// --- 表示 ---
+function renderResults(data, drawCount, year, month) {
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('resultsMeta').textContent =
+    `分析対象 ${drawCount}回 ／ 予測月 ${year}年${monthNames[month-1]}`;
+
+  document.getElementById('analysisBox').textContent = data.summary || '';
+
+  // patterns
+  const pg = document.getElementById('patternsGrid');
+  pg.innerHTML = '';
+  (data.patterns||[]).forEach(p => {
+    pg.innerHTML += `<div class="pattern-chip"><div class="p-name">${esc(p.name)}</div><div class="p-desc">${esc(p.desc)}</div></div>`;
+  });
+
+  // bonus analysis
+  const ba = data.bonusAnalysis;
+  if (ba) {
+    document.getElementById('bonusAnalysisBox').innerHTML = `
+      <div class="bonus-stat-grid">
+        <div class="bonus-stat-item">
+          <div class="bs-label">📌 全体最頻出</div>
+          <div class="ball ball-bonus">${ba.topBonus||'—'}</div>
+        </div>
+        <div class="bonus-stat-item">
+          <div class="bs-label">💎 穴場</div>
+          <div class="ball ball-bonus-hidden">${ba.hiddenBonus||'—'}</div>
+        </div>
+        <div class="bonus-stat-item">
+          <div class="bs-label">📅 当月推奨</div>
+          <div class="ball ball-bonus-month">${ba.monthlyBonus||'—'}</div>
+        </div>
+      </div>
+      <div class="bonus-comment">${esc(ba.comment||'')}</div>`;
+    document.getElementById('bonusSection').style.display = 'block';
+  }
+
+  // high prob
+  renderSets('highProbSets', data.highProb||[]);
+  // monthly
+  renderSets('monthlyPickSets', data.monthlyPick||[]);
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('btnPdf').style.display = 'inline-block';
+}
+
+function renderSets(containerId, sets) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const roleColor = { '1等本命':'var(--green)', '2等狙い':'var(--blue)', '穴場狙い':'var(--orange)' };
+  const zoneNames = ['1-10','11-20','21-30','31-43'];
+  sets.forEach((set, i) => {
+    const nums = set.numbers || [];
+    const balls = nums.map(n => {
+      return `<div class="ball ${getBallClass(n)}">${n}</div>`;
+    }).join('');
+    const bonusBall = set.bonus
+      ? `<div class="bonus-separator">＋</div><div class="ball ball-bonus-pick" title="ボーナス推奨">${set.bonus}</div>`
+      : '';
+
+    // 奇偶バッジ（実計算）
+    const oddCnt  = nums.filter(n=>n%2===1).length;
+    const evenCnt = 6 - oddCnt;
+    const oddBadge = `<span class="stat-badge">${oddCnt}奇${evenCnt}偶</span>`;
+
+    // ゾーンバッジ（実計算 or AIから受け取ったzones）
+    let zoneBadge = '';
+    if (set.zones && set.zones.length === 4) {
+      const zStr = set.zones.map((c,i)=> c>0 ? `${zoneNames[i]}:${c}` : '').filter(Boolean).join(' ');
+      zoneBadge = `<span class="stat-badge">${zStr}</span>`;
+    } else {
+      const zc = [0,0,0,0];
+      nums.forEach(n=>{ zc[n<=10?0:n<=20?1:n<=30?2:3]++; });
+      const zStr = zc.map((c,i)=>c>0?`${zoneNames[i]}:${c}`:'').filter(Boolean).join(' ');
+      zoneBadge = `<span class="stat-badge">${zStr}</span>`;
+    }
+
+    // roleバッジ
+    const role = set.role || '';
+    const roleStyle = roleColor[role] ? `color:${roleColor[role]};border-color:${roleColor[role]}` : '';
+    const roleBadge = role ? `<span class="stat-badge role-badge" style="${roleStyle}">${role}</span>` : '';
+
+    container.innerHTML += `
+      <div class="prediction-row">
+        <div class="row-left">
+          <div class="row-label">第${i+1}案</div>
+          <div class="row-badges">${roleBadge}${oddBadge}${zoneBadge}</div>
+        </div>
+        <div class="balls">${balls}${bonusBall}</div>
+        <div class="row-reason">${esc(set.reason||'')}</div>
+      </div>`;
+  });
+}
+
+function getBallClass(n) {
+  if (n <= 7)  return 'ball-1';
+  if (n <= 14) return 'ball-2';
+  if (n <= 21) return 'ball-3';
+  if (n <= 28) return 'ball-4';
+  if (n <= 35) return 'ball-5';
+  return 'ball-6';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showStatus(msg) {
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('statusBar').style.display = 'flex';
+}
+function hideStatus() {
+  document.getElementById('statusBar').style.display = 'none';
+}
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+// --- 📄 PDF出力（新しいタブで白背景表示→共有からPDF保存）---
+function downloadPDF() {
+  const results = document.getElementById('results');
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+  // 予測結果のテキストを収集
+  const summary = document.getElementById('analysisBox').textContent || '';
+  const meta = document.getElementById('resultsMeta').textContent || '';
+
+  // 予測セットを収集
+  function collectSets(containerId) {
+    const rows = document.querySelectorAll(`#${containerId} .prediction-row`);
+    let html = '';
+    rows.forEach(row => {
+      const label = row.querySelector('.row-label')?.textContent || '';
+      const mainBalls = Array.from(row.querySelectorAll('.ball:not(.ball-bonus-pick)')).map(b => b.textContent.trim());
+      const bonusBallEl = row.querySelector('.ball-bonus-pick');
+      const bonusNum = bonusBallEl ? bonusBallEl.textContent.trim() : null;
+      const reason = row.querySelector('.row-reason')?.textContent || '';
+      html += `
+        <div style="margin:12px 0; padding:12px; border:1px solid #ddd; border-radius:8px; background:#fafafa;">
+          <div style="font-weight:bold; color:#555; font-size:12px; margin-bottom:6px;">${label}</div>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+            ${mainBalls.map(n => `<span style="display:inline-block; width:32px; height:32px; line-height:32px; text-align:center; border-radius:50%; background:#1a3a5c; color:#fff; font-weight:bold; font-size:14px;">${n}</span>`).join('')}
+            ${bonusNum ? `<span style="color:#888; font-size:14px; margin:0 2px;">＋</span><span style="display:inline-block; width:32px; height:32px; line-height:32px; text-align:center; border-radius:50%; background:#ad1457; color:#fff; font-weight:bold; font-size:14px;" title="ボーナス推奨">${bonusNum}</span>` : ''}
+          </div>
+          <div style="font-size:12px; color:#666;">${reason}</div>
+        </div>`;
+    });
+    return html;
+  }
+
+  // パターンチップを収集
+  const chips = Array.from(document.querySelectorAll('.pattern-chip')).map(c => {
+    const name = c.querySelector('.p-name')?.textContent || '';
+    const desc = c.querySelector('.p-desc')?.textContent || '';
+    return `<span style="display:inline-block; margin:4px; padding:6px 10px; background:#f0f0f0; border-radius:6px; font-size:11px;"><strong>${name}</strong>: ${desc}</span>`;
+  }).join('');
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ロト6 AI予測結果 ${dateStr}</title>
+</head>
+<body style="font-family:'Hiragino Sans',sans-serif; background:#fff; color:#222; margin:0; padding:20px; max-width:700px; margin:0 auto;">
+  <h1 style="text-align:center; color:#1a3a5c; border-bottom:2px solid #1a3a5c; padding-bottom:10px;">ロト6 AI予測結果</h1>
+  <p style="text-align:right; color:#888; font-size:12px;">出力日: ${dateStr}　／　${meta}</p>
+
+  <h2 style="color:#8B6914; font-size:15px; border-left:4px solid #8B6914; padding-left:10px;">統計パターン分析</h2>
+  <div style="background:#f5f5f5; padding:14px; border-radius:8px; font-size:13px; line-height:1.8; margin-bottom:20px;">${summary}</div>
+
+  <div style="margin-bottom:20px;">${chips}</div>
+
+  <h2 style="color:#1a6e3c; font-size:15px; border-left:4px solid #1a6e3c; padding-left:10px;">高確率予測</h2>
+  ${collectSets('highProbSets')}
+
+  <h2 style="color:#1a4a8c; font-size:15px; border-left:4px solid #1a4a8c; padding-left:10px; margin-top:24px;">当月頻出予測</h2>
+  ${collectSets('monthlyPickSets')}
+
+  <p style="text-align:center; color:#aaa; font-size:11px; margin-top:30px;">※本ツールは統計分析に基づく参考情報です。当選を保証するものではありません。</p>
+</body>
+</html>`;
+
+  // 新しいタブで開く
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+</script>
+</body>
+</html>
